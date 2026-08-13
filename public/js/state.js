@@ -5,6 +5,7 @@ const state = {
   recent: [], // project ids, most recent first
   collapsed: {}, // groupName -> bool
   query: '',
+  statusFilter: null, // null = all, or 'running' | 'stopped' | 'crashed' | 'starting'
   logProjectId: null,
   view: readView(), // 'list' | 'kanban' — card grid vs status columns
 };
@@ -91,6 +92,11 @@ export function setQuery(q) {
   emit('projects');
 }
 
+export function setStatusFilter(status) {
+  state.statusFilter = state.statusFilter === status ? null : status;
+  emit('projects');
+}
+
 export function toggleCollapsed(group) {
   state.collapsed[group] = !state.collapsed[group];
   emit('projects');
@@ -122,6 +128,7 @@ export function setLogProject(id) {
 }
 
 export function matchesQuery(p) {
+  if (state.statusFilter && p.status !== state.statusFilter) return false;
   if (!state.query) return true;
   const hay = [p.name, p.folder, String(p.port ?? ''), p.framework, p.group ?? '', p.pm]
     .join(' ')

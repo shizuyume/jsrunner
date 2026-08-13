@@ -1,7 +1,7 @@
 // Bootstrap: initial load, header actions, polling loops, event wiring.
 import { api } from './api.js';
 import { icons, logoIcon } from './icons.js';
-import { on, getState, getProject, setProjects, updateProject } from './state.js';
+import { on, getState, getProject, setProjects, updateProject, setStatusFilter } from './state.js';
 import { initTheme } from './theme.js';
 import { renderGroups, startGroup, stopGroup, restartGroup } from './groups.js';
 import { patchCard, startUptimeTicker } from './cards.js';
@@ -70,6 +70,40 @@ function wireHeader() {
   document.querySelector('#add-project').addEventListener('click', openAddProjectDialog);
   document.querySelector('#stop-all').addEventListener('click', () => stopGroup(getState().projects));
   initSearch(document.querySelector('#search'));
+  initStatusFilters();
+}
+
+function initStatusFilters() {
+  const container = document.querySelector('#status-filters');
+  if (!container) return;
+
+  container.addEventListener('click', (e) => {
+    const card = e.target.closest('.status-card');
+    if (!card) return;
+    const status = card.dataset.status;
+    setStatusFilter(status === 'all' ? null : status);
+    updateStatusCards();
+  });
+
+  on('projects', updateStatusCards);
+  updateStatusCards();
+}
+
+function updateStatusCards() {
+  const { projects, statusFilter } = getState();
+  const counts = { running: 0, stopped: 0, starting: 0, crashed: 0 };
+  for (const p of projects) {
+    if (counts[p.status] !== undefined) counts[p.status]++;
+  }
+
+  document.querySelectorAll('#status-filters .status-card').forEach((card) => {
+    const status = card.dataset.status;
+    const isActive = status === 'all' ? statusFilter === null : statusFilter === status;
+    card.classList.toggle('status-card--active', isActive);
+    card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    const countEl = card.querySelector('.status-card__count');
+    if (countEl) countEl.textContent = status === 'all' ? projects.length : (counts[status] || 0);
+  });
 }
 
 // Merge a fresh project list into the store, re-rendering structurally only

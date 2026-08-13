@@ -119,16 +119,6 @@ function cardHtml(p) {
       ${p.color ? `<span class="card__color" title="Project colour"></span>` : ''}
     </div>
     <h3 class="card__name" title="${esc(p.name)}">${esc(p.name)}</h3>
-    ${services.length > 0 ? `<div class="card__services">${services.map(s => `
-      <div class="card__service">
-        <span class="card__service-dot"></span>
-        <span class="card__service-name">${esc(s.script)}</span>
-        <span class="card__service-pid">PID ${s.pid}</span>
-        <button class="btn btn--sm" data-act="restart-service" data-script="${esc(s.script)}"
-          ${settling ? 'disabled title="Still starting up"' : ''}>${icons.restart} Restart</button>
-        <button class="btn btn--sm btn--danger" data-act="stop-service" data-script="${esc(s.script)}">${icons.stop} Stop</button>
-        <button class="btn btn--sm" data-act="service-logs" data-script="${esc(s.script)}">${icons.terminal} Log</button>
-      </div>`).join('')}</div>` : ''}
     <div class="card__badges">
       <span class="badge badge--${esc(fw)}">${esc(p.framework)}</span>
       <span class="badge badge--pm">${esc(p.pm)}</span>
@@ -173,9 +163,6 @@ function cardHtml(p) {
         title="Auto restart on crash: ${p.autoRestart ? 'ON' : 'OFF'}"
         aria-pressed="${p.autoRestart ? 'true' : 'false'}">${icons.shield}</button>
       <button class="btn btn--icon" data-act="logs" title="View logs">${icons.terminal}</button>
-      <button class="btn btn--icon ${live ? 'btn--live' : ''}" data-act="live"
-        title="${live ? 'Stop streaming live logs' : 'Stream live logs'}"
-        aria-pressed="${live ? 'true' : 'false'}">${icons.radio}</button>
       <button class="btn btn--icon" data-act="port" title="Change port">${icons.port}</button>
       <button class="btn btn--icon" data-act="rescan" title="Rescan package.json">${icons.refresh}</button>
       <button class="btn btn--icon" data-act="edit" title="Edit path">${icons.edit}</button>
@@ -339,11 +326,7 @@ function wire(el, p) {
       case 'logs':
         openLogPanel(p.id);
         break;
-      case 'live':
-        // Same drawer as the Log button — this one reads as an on/off stream.
-        if (isLive(p.id)) closeLogPanel();
-        else openLogPanel(p.id);
-        break;
+
       case 'port':
         openChangePortDialog(p.id);
         break;

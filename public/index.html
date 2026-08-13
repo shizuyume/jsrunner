@@ -40,6 +40,33 @@
       </div>
     </header>
 
+    <div id="status-filters" class="status-cards" aria-label="Filter by status">
+      <button class="status-card status-card--all" data-status="all" title="Show all services" aria-pressed="true">
+        <span class="status-card__label">All</span>
+        <span class="status-card__count">0</span>
+      </button>
+      <button class="status-card" data-status="running" title="Show running services" aria-pressed="false">
+        <span class="status-card__dot status-card__dot--running"></span>
+        <span class="status-card__label">Running</span>
+        <span class="status-card__count">0</span>
+      </button>
+      <button class="status-card" data-status="stopped" title="Show stopped services" aria-pressed="false">
+        <span class="status-card__dot status-card__dot--stopped"></span>
+        <span class="status-card__label">Stopped</span>
+        <span class="status-card__count">0</span>
+      </button>
+      <button class="status-card" data-status="starting" title="Show starting services" aria-pressed="false">
+        <span class="status-card__dot status-card__dot--starting"></span>
+        <span class="status-card__label">Starting</span>
+        <span class="status-card__count">0</span>
+      </button>
+      <button class="status-card" data-status="crashed" title="Show crashed services" aria-pressed="false">
+        <span class="status-card__dot status-card__dot--crashed"></span>
+        <span class="status-card__label">Crashed</span>
+        <span class="status-card__count">0</span>
+      </button>
+    </div>
+
     <nav id="profiles" class="profiles" aria-label="Profiles" hidden></nav>
 
     <nav id="recent" class="recent" aria-label="Recent projects" hidden>

@@ -80,7 +80,10 @@ export function registerControlRoutes(router, config, processManager, supervisor
   function withRunningServices(project) {
     const services = processManager.getRunningServices(project.id);
     const status = services.length > 0 ? 'running' : (project.status || 'stopped');
-    return { ...project, status, runningServices: services };
+    const isUp = status === 'running';
+    const health = isUp ? (supervisor.getHealth(project.id) || (project.port ? 'waiting' : 'none')) : 'unknown';
+    const url = project.port && health === 'ready' ? `http://localhost:${project.port}` : null;
+    return { ...project, status, runningServices: services, health, url };
   }
 
   // POST /api/project/start
