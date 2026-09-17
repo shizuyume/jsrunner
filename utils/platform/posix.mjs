@@ -185,7 +185,14 @@ async function listProcessesProc(withCommandLine) {
           try {
             const raw = await fs.promises.readFile(`/proc/${pid}/cmdline`, 'utf-8');
             // Arguments are NUL-separated, with a trailing NUL
-            proc.cmd = raw.replace(/\0+$/, '').split('\0').join(' ');
+            const argv = raw.replace(/\0+$/, '').split('\0');
+            proc.cmd = argv.join(' ');
+            // `comm` in /proc is the THREAD name, not the image name. Node 24
+            // names its main thread "MainThread", so every node process reads
+            // as that and would never match OWNED_IMAGES — orphan adoption
+            // would silently refuse every candidate. argv[0] is the program
+            // that was actually run, so prefer it whenever it is readable.
+            if (argv[0]) proc.name = path.basename(argv[0]);
           } catch {
             // Kernel thread, or it exited — the stat row is still usable
           }

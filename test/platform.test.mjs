@@ -393,7 +393,10 @@ setInterval(() => {}, 1000);
 
     const self = snapshot.get(process.pid);
     assert.ok(self, `own pid ${process.pid} missing from the process table`);
-    assert.match(self.name, /node/i);
+    // Must be the image name, not a thread name: /proc's `comm` reads
+    // "MainThread" under Node 24, which would break OWNED_IMAGES matching and
+    // with it orphan adoption.
+    assert.equal(self.name, path.basename(process.execPath), 'name should be the image, not the thread');
     assert.ok(self.mem > 0, 'resident memory should not be zero');
     assert.ok(self.cpuMs >= 0 && Number.isFinite(self.cpuMs), `cpuMs was ${self.cpuMs}`);
     assert.ok(self.ppid > 0, 'parent pid should be set');

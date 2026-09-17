@@ -13,6 +13,10 @@
 //   { pid, ppid, name, cpuMs, mem, cmd }
 //   cpuMs — cumulative CPU time in ms; mem — resident bytes; cmd — '' unless
 //   listProcesses was called with { withCommandLine: true }.
+//
+// One caveat on `name`: match it against OWNED_IMAGES only on records fetched
+// with { withCommandLine: true }. Without it, Linux can only offer /proc's
+// `comm`, which is the thread name — Node 24 reports "MainThread" there.
 import * as win from './win.mjs';
 import * as posix from './posix.mjs';
 
