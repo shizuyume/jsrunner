@@ -40,6 +40,7 @@
 | 🔌 | **Port Manager** | Ganti port project langsung dari UI, hindari konflik port antar service |
 | 📌 | **Recent Projects** | Project terakhir dijalankan tampil di strip atas, bisa dihapus |
 | 🌙 | **Dark Mode** | UI gelap, responsive, card layout murni CSS Variables — tanpa framework CSS |
+| 🛡️ | **Request Guard** | Situs lain tidak bisa menyetir dashboard-mu lewat browser — header `Origin` dan `Host` divalidasi, menutup CSRF dan DNS rebinding |
 
 ---
 
@@ -113,6 +114,36 @@ stopped ──► starting ──► running ──► crashed
 | **macOS** | `sh -c` (process group) | `SIGKILL` ke process group | `ps` | `lsof` → `ss` |
 
 > Kalau `ss`/`lsof` tidak terpasang, port conflict guard turun pangkat jadi tes bind biasa — tetap jalan, cuma kurang akurat.
+
+---
+
+## 🛡️ Keamanan
+
+Start sebuah project di sini berarti **menjalankan perintah shell**. Artinya setiap route `/api` adalah primitif eksekusi kode bagi apa pun yang bisa menjangkaunya. Dua serangan lewat browser benar-benar bisa menjangkaunya, dan keduanya ditutup di [`server/guard.mjs`](server/guard.mjs):
+
+| Serangan | Cara kerjanya | Yang menahan |
+|---|---|---|
+| **CSRF** | Situs yang kamu buka mengirim `POST` dengan `Content-Type: text/plain`. Itu *simple request* — tidak kena preflight, jadi request tetap sampai dan server tetap bertindak, walau penyerang tidak bisa membaca balasannya. Cukup untuk memicu `/api/project/start`, `/api/port/kill`, atau `DELETE /api/project/:id` | Header `Origin` harus sama dengan alamat yang dituju request |
+| **DNS rebinding** | Domain penyerang di-resolve ulang ke `127.0.0.1`, sehingga halamannya jadi *same-origin* dan lolos dari cek Origin | Header `Host` harus `localhost`, sebuah alamat IP, atau nama yang kamu izinkan sendiri |
+
+Aturan tambahan: request `/api` dengan `Sec-Fetch-Site` lintas situs ditolak, menangkap request dari `<img>`/`<script>` yang tidak membawa `Origin` sama sekali.
+
+**Yang tetap jalan seperti biasa:**
+
+- Dashboard memanggil API-nya sendiri — same-origin, selalu lolos
+- `curl`, script, dan tooling lain — tidak punya `Origin`, jadi tidak diblokir (mereka bukan browser, jadi bukan sasaran CSRF)
+- Membuka `http://localhost:9999` dari link di situs lain — halaman statis tidak ikut dicek Origin
+- Akses lewat IP di LAN saat `--host 0.0.0.0` — alamat IP tidak bisa di-rebind, jadi diterima
+
+**Kalau kamu memakai nama host sendiri** (reverse proxy, entri di hosts file), daftarkan:
+
+```bash
+jsrunner --allow-host dev.local
+```
+
+Bisa diulang, atau lewat env: `ALLOW_HOSTS=dev.local,jsr.internal`.
+
+> ⚠️ **Ini bukan autentikasi.** Guard ini menghentikan *halaman web lain*, bukan klien lain. Dengan `--host 0.0.0.0`, siapa pun di jaringanmu yang bisa mengirim HTTP biasa tetap punya kendali penuh — tidak ada password, tidak ada token. Pakai `0.0.0.0` hanya di jaringan yang kamu percaya.
 
 ---
 
@@ -522,7 +553,8 @@ service-runner/
 ├── server/          # HTTP server, router, static file
 │   ├── server.mjs   # Entry point
 │   ├── router.mjs   # Router minimalis (tanpa framework)
-│   └── static.mjs   # Static file server
+│   ├── static.mjs   # Static file server
+│   └── guard.mjs    # 🛡️ validasi Origin/Host — tolak CSRF & DNS rebinding
 ├── api/             # Route handlers per domain
 │   ├── projects.mjs
 │   ├── control.mjs  # start / stop / restart

@@ -4,6 +4,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'node:url';
 import { createRouter } from './router.mjs';
 import { serveStatic } from './static.mjs';
+import { createRequestGuard } from './guard.mjs';
 import { registerProjectRoutes } from '../api/projects.mjs';
 import * as processManager from '../utils/process.mjs';
 import * as logger from '../utils/logger.mjs';
@@ -36,6 +37,9 @@ Options:
   --host <addr>    Bind address               (default: localhost, env HOST;
                    use 0.0.0.0 to expose on the LAN — the tool has NO auth)
   --workdir <dir>  Where config/projects.json lives (default: ~/.jsrunner, env WORKDIR)
+  --allow-host <n> Also serve this hostname   (repeatable, env ALLOW_HOSTS=a,b)
+                   Only needed behind a proxy or a custom hosts-file name;
+                   localhost and plain IP addresses already work.
   --version, -v    Print version and exit
   --help, -h       Show this help and exit
 
@@ -43,6 +47,7 @@ Examples:
   jsrunner                        Start on http://localhost:9999
   jsrunner --port 9876            Start on http://localhost:9876
   jsrunner --host 0.0.0.0         Expose to local network (no auth — be careful)
+  jsrunner --allow-host dev.local Serve when reached as http://dev.local:9999
 `;
 
 function printHelp() {
@@ -62,7 +67,17 @@ function printBanner() {
   console.log(`  ${c('1;32', '→')} Dashboard : ${c('4;1', url)}`);
   console.log(`  ${c('1;32', '→')} Config    : ${config.getConfigPath()}`);
   if (opts.workdir) console.log(`  ${c('1;32', '→')} Workdir   : ${opts.workdir}`);
+  if (opts.allowHosts.length > 0) {
+    console.log(`  ${c('1;32', '→')} Allowed   : ${opts.allowHosts.join(', ')} (plus localhost and IPs)`);
+  }
   console.log(edge);
+  if (opts.host === '0.0.0.0') {
+    // Be precise about what the request guard does and does not cover, so
+    // "it blocks other sites" is not mistaken for "it is protected".
+    console.log(`  ${c('33', '⚠  Reachable from the LAN. Other web pages are blocked, but')}`);
+    console.log(`  ${c('33', '   anything that speaks plain HTTP still has full control.')}`);
+    console.log(edge);
+  }
   console.log(`  ${c('2', 'Update check on startup — Ctrl+C stops all running processes')}`);
   console.log('');
 }
@@ -99,6 +114,7 @@ const opts = {
   port: parseInt(process.env.PORT, 10) || 9999,
   host: process.env.HOST || 'localhost',
   workdir: process.env.WORKDIR || null,
+  allowHosts: (process.env.ALLOW_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean),
 };
 
 {
@@ -112,6 +128,11 @@ const opts = {
       case '--port': opts.port = parseInt(next(), 10) || 9999; break;
       case '--host': opts.host = next() || 'localhost'; break;
       case '--workdir': opts.workdir = next() || process.cwd(); break;
+      case '--allow-host': {
+        const value = next();
+        if (value) opts.allowHosts.push(value);
+        break;
+      }
       default:
         console.error(`Unknown option: ${a}\n\n${USAGE}`);
         process.exit(1);
@@ -147,8 +168,14 @@ registerScriptsRoutes(router);
 registerEventRoutes(router, { supervisor, logger });
 registerProfileRoutes(router, config, supervisor, processManager);
 
+// Starting a project runs a shell command, so every /api route is an RCE
+// primitive for whatever can reach it. This keeps other web pages out.
+const guard = createRequestGuard({ allowHosts: opts.allowHosts });
+
 const server = http.createServer(async (req, res) => {
   try {
+    if (guard(req, res)) return;
+
     // Try API routes first; if none matched, fall through to static file serving
     const matched = router.match(req, res);
     if (!matched) {

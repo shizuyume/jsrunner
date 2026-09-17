@@ -21,7 +21,7 @@
   "scripts": {
     "start": "node server/server.mjs",
     "build": "node scripts/build.mjs",
-    "check": "node --check server/server.mjs && node --check server/router.mjs && node --check server/static.mjs && node --check api/control.mjs && node --check utils/platform/index.mjs && node --check utils/platform/win.mjs && node --check utils/platform/posix.mjs",
+    "check": "node --check server/server.mjs && node --check server/router.mjs && node --check server/static.mjs && node --check server/guard.mjs && node --check api/control.mjs && node --check utils/platform/index.mjs && node --check utils/platform/win.mjs && node --check utils/platform/posix.mjs",
     "test": "node --test",
     "prepack": "npm run check"
   },
