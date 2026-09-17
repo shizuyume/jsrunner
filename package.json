@@ -20,6 +20,7 @@
   },
   "scripts": {
     "start": "node server/server.mjs",
+    "build": "node scripts/build.mjs",
     "check": "node --check server/server.mjs && node --check server/router.mjs && node --check server/static.mjs && node --check api/control.mjs",
     "prepack": "npm run check"
   },

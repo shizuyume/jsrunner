@@ -1,0 +1,103 @@
+site_name: Local Service Runner Documentation
+site_description: Comprehensive documentation for @shizuyume/jsrunner — zero-dependency local multi-project dev dashboard
+site_author: Shizuyume
+site_url: https://shizuyume.github.io/jsrunner
+
+repo_name: shizuyume/jsrunner
+repo_url: https://github.com/shizuyume/jsrunner
+edit_uri: edit/main/docs/
+
+# Plugins
+plugins:
+  - search
+  - mermaid2
+
+# Markdown extensions
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+# Theme
+theme:
+  name: material
+  language: id
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+# Extra
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/shizuyume/jsrunner
+    - icon: fontawesome/brands/npm
+      link: https://www.npmjs.com/package/@shizuyume/jsrunner
+
+extra_css:
+  - css/extra.css
+
+# Navigation (DIARY Structure)
+nav:
+  - Home: README.md
+  
+  - Struktur:
+    - structure/index.md
+  
+  - TechDocs:
+    - techdocs/index.md
+    - Arsitektur: techdocs/architecture.md
+    - REST API Contracts: techdocs/api-contracts.md
+    - Deployment: techdocs/deployment.md
+    - Development Guide: techdocs/development-guide.md
+    - Decision Log (ADR): techdocs/decision-log.md
+  
+  - Product:
+    - product/index.md
+    - Modules: product/modules.md
+    - User Guide: product/user-guide.md
+  
+  - Ops & Governance:
+    - ops-governance/index.md
+    - Runbooks: ops-governance/runbooks.md
+    - Security: ops-governance/security.md
+  
+  - Knowledge Base:
+    - knowledge-base/index.md
+    - FAQ: knowledge-base/faq.md
+    - Troubleshooting: knowledge-base/troubleshooting.md

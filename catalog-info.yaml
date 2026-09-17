@@ -1,0 +1,61 @@
+---
+# Backstage Catalog Descriptor
+# https://backstage.io/docs/features/software-catalog/descriptor-format
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: local-service-runner
+  description: >
+    Zero-dependency local multi-project dev dashboard.
+    Run many JavaScript/TypeScript projects from one browser tab
+    with realtime logs, process management, health checks,
+    and profile-based startup presets.
+  tags:
+    - dev-tools
+    - process-manager
+    - dashboard
+    - localhost
+    - zero-dependency
+  annotations:
+    # TODO: confirm — setel dengan GitHub org/project slug yang benar
+    github.com/project-slug: shizuyume/jsrunner
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - title: npm Package
+      url: https://www.npmjs.com/package/@shizuyume/jsrunner
+      icon: dashboard
+    - title: GitHub Repository
+      url: https://github.com/shizuyume/jsrunner
+      icon: github
+    - title: Documentation
+      url: https://shizuyume.github.io/jsrunner
+      icon: docs
+spec:
+  type: tool
+  lifecycle: production
+  owner: shizuyume
+  # TODO: confirm — setel dengan nama tim/system owner yang tepat
+  system: developer-tools
+  
+  providesApis: []
+  consumesApis: []
+  
+  # Resource dependencies
+  # Tidak ada database, cache, atau message broker
+  dependencies: []
+  
+  # Subcomponent references
+  subcomponentOf: null
+
+  # Technology
+  # Detected from package.json and source code analysis
+  metadata:
+    # TODO: confirm — tambahkan annotation kustom jika diperlukan
+    custom:
+      runtime: nodejs
+      engine: ">=18"
+      language: javascript
+      framework: none (vanilla)
+      database: none (flat JSON files)
+      dependencies: "0 npm packages"
+      port: "9999"

@@ -1095,6 +1095,169 @@ export function openDeleteGroupDialog(name) {
     ],
   });
 }
+// ---------- Import Scripts from package.json ----------
+// Import individual scripts from a single package.json as separate cards.
+export function openImportScriptsDialog() {
+  const modal = openModal({
+    title: 'Import Scripts',
+    wide: true,
+    bodyHtml:
+      field('package.json path', input('path', '', 'D:/Projects/door-v3/package.json')) +
+      '<p class="modal__hint">Import individual scripts from a <code>package.json</code> as separate service cards. ' +
+      'Each script gets its own Start/Stop/Logs controls.</p>' +
+      '<span class="field__error"></span>',
+    actions: [
+      { label: 'Cancel', onClick: ({ close }) => close() },
+      {
+        label: 'Scan Scripts',
+        primary: true,
+        onClick: ({ backdrop, btn }) => runScriptsScan(backdrop, btn),
+      },
+    ],
+    onOpen: (b) => {
+      const inp = b.querySelector('[name="path"]');
+      inp.focus();
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') b.querySelector('.modal__footer .btn--primary')?.click();
+      });
+    },
+  });
+
+  async function runScriptsScan(backdrop, btn) {
+    const path = backdrop.querySelector('[name="path"]').value.trim();
+    if (!path) return setError(backdrop, 'Path is required');
+    busy(btn, 'Scanning…');
+    try {
+      const result = await api.scanScripts(path);
+      showScriptsPicker(result, path);
+    } catch (err) {
+      setError(backdrop, err.message);
+      toastError(err.message);
+      btn.disabled = false;
+      btn.textContent = 'Scan Scripts';
+    }
+  }
+
+  function showScriptsPicker(result, originalPath) {
+    const selectable = result.candidates.filter((s) => !s.added);
+
+    modal.setStep({
+      title: `Import Scripts — ${result.packageName}`,
+      bodyHtml:
+        `<div class="scan__summary">
+          <span class="scan__root" title="${esc(result.folder)}">${esc(result.packageName)}</span>
+          <span>${result.totalScripts} script${result.totalScripts === 1 ? '' : 's'} found ·
+            ${selectable.length} available</span>
+          <span class="scan__badges" style="margin-left:8px">
+            <span class="scan__badge">${esc(result.framework)}</span>
+            <span class="scan__badge">${esc(result.pm)}</span>
+          </span>
+        </div>` +
+        searchBox('Search script name…') +
+        `<div class="scan__toolbar">
+          <button class="btn btn--sm" data-sact="all">Select all</button>
+          <button class="btn btn--sm" data-sact="none">Select none</button>
+          <button class="btn btn--sm" data-sact="runnable">Only runnable</button>
+          <span class="scan__count"></span>
+        </div>` +
+        `<div class="scan__list">${result.candidates.map(scriptRow).join('')}
+          <span class="scan__empty" hidden></span>
+        </div>` +
+        field('Group for imported scripts', groupInput('group', result.packageName)) +
+        '<span class="field__error"></span>',
+      actions: [
+        { label: 'Back', onClick: () => modal.setStep(importScriptsStep1(originalPath)) },
+        {
+          label: 'Import Selected',
+          primary: true,
+          onClick: async ({ backdrop, close, btn }) => {
+            const picked = [...backdrop.querySelectorAll('.scan__check:checked')].map((c) => c.value);
+            if (picked.length === 0) return setError(backdrop, 'Select at least one script');
+            const group = groupValue(backdrop);
+            busy(btn, `Importing ${picked.length}…`);
+            try {
+              const { added, skipped } = await api.addScripts(result.path, picked, group || undefined);
+              added.forEach(addProject);
+              toastSuccess(`${added.length} script${added.length === 1 ? '' : 's'} imported`);
+              if (skipped.length) toastError(`${skipped.length} skipped: ${skipped[0].reason}`);
+              close();
+            } catch (err) {
+              setError(backdrop, err.message);
+              toastError(err.message);
+              btn.disabled = false;
+              btn.textContent = 'Import Selected';
+            }
+          },
+        },
+      ],
+      onOpen: (b) => {
+        wireGroupPicker(b);
+        const { visibleChecks, sync, searchEl } = wireListSearch(b, { checkSelector: '.scan__check' });
+
+        b.querySelector('[data-sact="all"]').addEventListener('click', () => {
+          visibleChecks().forEach((c) => { c.checked = true; });
+          sync();
+        });
+        b.querySelector('[data-sact="none"]').addEventListener('click', () => {
+          visibleChecks().forEach((c) => { c.checked = false; });
+          sync();
+        });
+        b.querySelector('[data-sact="runnable"]').addEventListener('click', () => {
+          visibleChecks().forEach((c) => { c.checked = c.dataset.runnable === '1'; });
+          sync();
+        });
+
+        searchEl.focus();
+      },
+    });
+  }
+
+  function importScriptsStep1(path) {
+    return {
+      title: 'Import Scripts',
+      bodyHtml:
+        field('package.json path', input('path', esc(path), 'D:/Projects/door-v3/package.json')) +
+        '<p class="modal__hint">Import individual scripts from a <code>package.json</code> as separate service cards.</p>' +
+        '<span class="field__error"></span>',
+      actions: [
+        { label: 'Cancel', onClick: ({ close }) => close() },
+        { label: 'Scan Scripts', primary: true, onClick: ({ backdrop, btn }) => runScriptsScan(backdrop, btn) },
+      ],
+      onOpen: (b) => b.querySelector('[name="path"]').focus(),
+    };
+  }
+}
+
+// One row in the scripts scan result list
+function scriptRow(s) {
+  const badges = [
+    s.isRunnable ? '<span class="scan__badge scan__badge--success">runnable</span>' : '',
+    s.isUtility ? '<span class="scan__badge scan__badge--info">utility</span>' : '',
+    s.port ? `<span class="scan__badge">:${s.port}</span>` : '',
+    s.added ? '<span class="scan__badge scan__badge--muted">already added</span>' : '',
+  ].join('');
+
+  const search = haystack(s.name, s.command, s.port ?? '');
+  const checked = !s.added && s.isRunnable ? 'checked' : '';
+
+  return `
+    <label class="scan__item ${s.added ? 'scan__item--disabled' : ''}" data-search="${esc(search)}">
+      <input type="checkbox" class="scan__check" value="${esc(s.name)}"
+        data-runnable="${s.isRunnable ? 1 : 0}" ${checked} ${s.added ? 'disabled' : ''}>
+      <span class="scan__info">
+        <span class="scan__name">${esc(s.name)}</span>
+        <span class="scan__path" title="${esc(s.command)}">${esc(truncateCommand(s.command))}</span>
+        <span class="scan__badges">${badges}</span>
+      </span>
+    </label>`;
+}
+
+// Truncate long commands for display
+function truncateCommand(cmd, maxLen = 60) {
+  if (!cmd) return '';
+  return cmd.length > maxLen ? cmd.slice(0, maxLen) + '…' : cmd;
+}
+
 // ---------- Delete ----------
 export function openDeleteDialog(id) {
   const p = getProject(id);

@@ -4,6 +4,7 @@ brd.md
 .playwright-mcp
 docs
 logs/
+dist/
 config/projects.json
 config/projects.json.bak
 config/projects.json.tmp

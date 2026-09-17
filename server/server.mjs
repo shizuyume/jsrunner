@@ -15,6 +15,7 @@ import { registerPortRoutes } from '../api/port.mjs';
 import { registerPathRoutes } from '../api/path.mjs';
 import { registerGroupRoutes } from '../api/group.mjs';
 import { registerWorkspaceRoutes } from '../api/workspace.mjs';
+import { registerScriptsRoutes } from '../api/scripts.mjs';
 import { registerEventRoutes } from '../api/events.mjs';
 import { registerProfileRoutes } from '../api/profiles.mjs';
 import * as supervisor from '../utils/supervisor.mjs';
@@ -142,6 +143,7 @@ registerPortRoutes(router);
 registerPathRoutes(router);
 registerGroupRoutes(router, config);
 registerWorkspaceRoutes(router);
+registerScriptsRoutes(router);
 registerEventRoutes(router, { supervisor, logger });
 registerProfileRoutes(router, config, supervisor, processManager);
 

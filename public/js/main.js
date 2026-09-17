@@ -9,7 +9,7 @@ import { renderRecent } from './recent.js';
 import { initProfiles, renderProfiles, refreshProfileCounts, loadProfiles } from './profiles.js';
 import { initSearch } from './search.js';
 import { syncLogPanel, notifyLogUpdate } from './logs.js';
-import { openAddProjectDialog } from './dialogs.js';
+import { openAddProjectDialog, openImportScriptsDialog } from './dialogs.js';
 import { toastError, toastInfo } from './toast.js';
 import { connectEvents } from './events.js';
 
@@ -68,6 +68,7 @@ function refreshRunning() {
 function wireHeader() {
   initTheme(document.querySelector('#theme-toggle'));
   document.querySelector('#add-project').addEventListener('click', openAddProjectDialog);
+  document.querySelector('#import-scripts').addEventListener('click', openImportScriptsDialog);
   document.querySelector('#stop-all').addEventListener('click', () => stopGroup(getState().projects));
   initSearch(document.querySelector('#search'));
   initStatusFilters();
@@ -161,6 +162,7 @@ async function boot() {
 // the HTML free of duplicated SVG blobs.
 document.querySelector('#logo').innerHTML = logoIcon;
 document.querySelector('#add-project').insertAdjacentHTML('afterbegin', icons.plus);
+document.querySelector('#import-scripts').insertAdjacentHTML('afterbegin', icons.code);
 document.querySelector('#stop-all').insertAdjacentHTML('afterbegin', icons.stop);
 // Both glyphs live in the thumb; CSS cross-fades them on the active theme.
 document.querySelector('.switch-theme__thumb').innerHTML =
