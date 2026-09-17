@@ -102,8 +102,17 @@ stopped ──► starting ──► running ──► crashed
 
 ## 📦 Persyaratan
 
-- **Node.js** (versi yang mendukung ES Module, disarankan v18+)
+- **Node.js** v18 ke atas
+- **Windows, macOS, atau Linux** — semua primitif OS (spawn shell, kill process tree, baca tabel port) diisolasi di `utils/platform/`
 - Tidak perlu `npm install` sama sekali ✅
+
+| OS | Shell | Kill tree | Tabel process | Listener port |
+|---|---|---|---|---|
+| **Windows** | `cmd.exe /d /s /c` | `taskkill /T /F` | CIM (`Win32_Process`) | `netstat -ano` |
+| **Linux** | `sh -c` (process group) | `SIGKILL` ke process group | `/proc` | `ss` → `lsof` |
+| **macOS** | `sh -c` (process group) | `SIGKILL` ke process group | `ps` | `lsof` → `ss` |
+
+> Kalau `ss`/`lsof` tidak terpasang, port conflict guard turun pangkat jadi tes bind biasa — tetap jalan, cuma kurang akurat.
 
 ---
 
@@ -399,7 +408,7 @@ File yang didukung: `.env.local`, `.env.development`, `vite.config.js/ts`, `next
 
 #### Port Conflict Guard
 
-Sebelum start, port project dicek lewat `netstat` (bukan sekadar percobaan bind — server yang listen di `::` tidak selalu memblokir bind ke `127.0.0.1` di Windows). Kalau bentrok, start dibatalkan dan dialog menampilkan **process yang memegang port itu**:
+Sebelum start, port project dicek lewat tabel listener milik OS — `netstat` di Windows, `ss`/`lsof` di Linux & macOS — bukan sekadar percobaan bind, karena server yang listen di `::` tidak selalu memblokir bind ke `127.0.0.1`. Kalau bentrok, start dibatalkan dan dialog menampilkan **process yang memegang port itu**:
 
 ```
 Port 5503 In Use
@@ -428,13 +437,13 @@ Aktif per project. Jika crash → tunggu 1,5 detik → start ulang otomatis, mak
 Stop atau Start manual otomatis membatalkan restart yang sedang menunggu.
 
 **CPU & Memory**
-Ditampilkan di card saat project running. Dihitung dari total **process tree**, karena PID yang dilacak adalah wrapper `cmd.exe` — mengukur PID itu saja akan selalu menghasilkan 0%. CPU dinormalisasi terhadap jumlah core (sama seperti Task Manager). Sampling memakai satu query CIM per interval dan **berhenti total saat tidak ada project yang jalan**. Angka ini hanya di memori, tidak pernah ditulis ke `projects.json`.
+Ditampilkan di card saat project running. Dihitung dari total **process tree**, karena PID yang dilacak adalah wrapper shell (`cmd.exe` di Windows, `sh` di Unix) — mengukur PID itu saja akan selalu menghasilkan 0%. CPU dinormalisasi terhadap jumlah core (sama seperti Task Manager). Sampling memakai satu snapshot process table per interval (CIM di Windows, `/proc` di Linux, `ps` di macOS) dan **berhenti total saat tidak ada project yang jalan**. Angka ini hanya di memori, tidak pernah ditulis ke `projects.json`.
 
 **Re-attach Orphan Process**
 Kalau server dimatikan paksa (bukan Ctrl+C), service tetap hidup tanpa pengelola. Saat server start ulang, setiap project berstatus `running` dicoba diadopsi:
 
-1. **Via PID** — PID tersimpan masih hidup dan image-nya dikenali (`cmd.exe`/`node.exe`/`bun.exe`/`deno.exe`).
-2. **Via port** — PID tersimpan sudah mati (hard kill sering membunuh wrapper `cmd.exe` tapi menyisakan `node` di bawahnya), tapi port project masih dipegang process yang dikenali.
+1. **Via PID** — PID tersimpan masih hidup dan image-nya dikenali (Windows: `cmd.exe`/`node.exe`/`bun.exe`/`deno.exe`; Unix: `sh`/`bash`/`node`/`npm`/`bun`/`deno`).
+2. **Via port** — PID tersimpan sudah mati (hard kill sering membunuh wrapper shell tapi menyisakan `node` di bawahnya), tapi port project masih dipegang process yang dikenali.
 
 Yang berhasil diadopsi tampil dengan badge `re-attached` dan **Stop/Restart-nya berfungsi normal**; log lama tidak tersedia (stdio-nya sudah hilang) sampai project di-restart. Yang tidak bisa diidentifikasi ditandai `stopped`. Adopsi sengaja dibuat konservatif — PID bisa didaur ulang OS, dan salah membunuh process orang lain jauh lebih buruk daripada kehilangan jejak satu service.
 
@@ -534,7 +543,10 @@ service-runner/
 │   ├── supervisor.mjs # sinkron status process ↔ config, auto restart, adopsi
 │   ├── metrics.mjs  # CPU/memory per process tree
 │   ├── health.mjs   # TCP readiness probe + wait-for-port
-│   ├── win-process.mjs # snapshot process table + port listener (CIM/netstat)
+│   ├── platform/    # 🧱 batas OS — satu-satunya modul yang boleh menyebut
+│   │   ├── index.mjs #    primitif OS. Memilih implementasi + helper lintas OS
+│   │   ├── win.mjs   #    cmd.exe, taskkill, CIM, netstat
+│   │   └── posix.mjs #    sh -c + process group, /proc, ps, ss/lsof
 │   ├── script-runner.mjs
 │   ├── logger.mjs   # buffer log per process
 │   ├── port.mjs     # rewrite konfigurasi port

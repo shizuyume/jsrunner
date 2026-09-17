@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# The whole point of this matrix: utils/platform/ spawns processes, kills
+# process trees and reads the OS listener table three different ways. Only a
+# real runner of each OS can prove any of it works.
+jobs:
+  test:
+    name: ${{ matrix.os }} · node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18', '20', '22']
+        include:
+          # Forward-compat canary; no need to pay for it on every OS
+          - os: ubuntu-latest
+            node: '24'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No `npm ci` on purpose — this package has zero dependencies and ships
+      # without a lockfile. Adding an install step would only hide that.
+      - name: Syntax gate
+        run: npm run check
+
+      - name: Tests
+        run: npm test
+
+  boundary:
+    name: platform boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # utils/platform/ is the only module allowed to name an OS primitive.
+      # Without this, the next "quick fix" quietly re-hardcodes taskkill into
+      # an api/ handler and the port to macOS rots again.
+      - name: No OS primitives outside utils/platform/
+        run: |
+          leaks=$(grep -rnE "cmd\.exe|taskkill|powershell|netstat|Win32_Process|lsof" \
+                    --include=*.mjs server api utils \
+                  | grep -v "^utils/platform/" \
+                  | grep -vE "^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)" || true)
+          if [ -n "$leaks" ]; then
+            echo "OS primitives must live in utils/platform/ — found:"
+            echo "$leaks"
+            exit 1
+          fi
+          echo "Boundary clean."

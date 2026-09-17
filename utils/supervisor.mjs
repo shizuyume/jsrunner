@@ -3,7 +3,7 @@
 //  - auto-restarts crashed projects that opted in, with a crash-loop guard
 //  - adopts orphan processes left behind by a previous server run
 //  - holds live CPU/memory samples (kept in memory, never written to disk)
-import { listProcesses, findListeningPids, pidAlive } from './win-process.mjs';
+import { listProcesses, findListeningPids, pidAlive, OWNED_IMAGES } from './platform/index.mjs';
 import { probePort, waitForPort } from './health.mjs';
 
 const RESTART_DELAY_MS = 1500;
@@ -405,17 +405,13 @@ export function reconcile() {
   return out;
 }
 
-// Process names we are willing to adopt — anything else with that PID is a
-// stranger, and PIDs do get recycled.
-const OWNED_IMAGES = new Set(['cmd.exe', 'node.exe', 'bun.exe', 'deno.exe']);
-
 /**
  * Re-attach to processes from a previous server run.
  *
  * Two identification strategies, both deliberately conservative — losing track
  * of one of our processes is far better than killing a stranger's:
  *  1. the recorded PID is still alive and is one of our images
- *  2. the recorded PID is gone (a hard kill takes out the cmd.exe wrapper but
+ *  2. the recorded PID is gone (a hard kill takes out the shell wrapper but
  *     not always its node grandchild) but something is still listening on the
  *     project's port — that listener is the orphan
  */

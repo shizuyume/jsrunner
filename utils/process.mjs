@@ -1,6 +1,4 @@
-import { spawn } from 'child_process';
-import { execSync } from 'child_process';
-import { pidAlive } from './win-process.mjs';
+import { spawnShell, killTree, pidAlive } from './platform/index.mjs';
 
 // In-memory process store: "id:script" → { child, pid, startedAt, status, command, script, killed, adopted, onCrashCallbacks[] }
 // `child` is null for adopted entries — processes started by a previous run of
@@ -56,9 +54,10 @@ export function buildCommand({ scripts = [], pm, id, runScript, command }, expli
 }
 
 /**
- * Spawn a process with Windows-specific handling.
- * ALL package managers (npm/yarn/pnpm/bun) need cmd.exe wrapper on Windows
- * because they're .cmd/.bat files, not .exe — spawn can't resolve them directly.
+ * Spawn a process through the platform shell.
+ * Per-project env vars are layered over the server's own environment; the
+ * shell invocation itself (cmd.exe vs sh, process group or not) is the
+ * platform layer's business.
  */
 function spawnProcess(command, cwd, env) {
   const extra = {};
@@ -66,14 +65,11 @@ function spawnProcess(command, cwd, env) {
     if (v !== null && v !== undefined) extra[k] = String(v);
   }
 
-  const opts = {
+  return spawnShell(command, {
     cwd,
-    windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: Object.keys(extra).length > 0 ? { ...process.env, ...extra } : process.env,
-  };
-
-  return spawn('cmd.exe', ['/d', '/s', '/c', command], opts);
+  });
 }
 
 /** Default script for a project: dev > start > first. */
@@ -93,7 +89,7 @@ function resolveScript(project, script) {
 function killEntry(entry) {
   entry.killed = true;
   try {
-    execSync(`taskkill /pid ${entry.pid} /T /F`, { windowsHide: true });
+    killTree(entry.pid);
   } catch {
     try { entry.child?.kill(); } catch { /* give up */ }
   }
@@ -183,7 +179,7 @@ export function startServiceProcess(project, script) {
 
 /**
  * Stop one service script for a project.
- * Uses taskkill /T /F on Windows for full process tree kill.
+ * The whole process tree goes, not just the shell wrapper.
  */
 export function stopServiceProcess(id, script) {
   const key = `${id}:${script}`;
@@ -229,7 +225,7 @@ export function getRunningServices(id) {
  * this dashboard does not manage.
  */
 export function killPid(pid) {
-  execSync(`taskkill /pid ${pid} /T /F`, { windowsHide: true });
+  killTree(pid);
 }
 
 /**

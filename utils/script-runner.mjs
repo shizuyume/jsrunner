@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process';
+import { spawnShell, killTree } from './platform/index.mjs';
 import * as logger from './logger.mjs';
 
 // Map<projectId, { child, pid, script, startedAt, running }>
@@ -18,9 +18,8 @@ export function runScript(project, script, command) {
     return { pid: existing.pid, status: 'running', script: existing.script };
   }
 
-  const child = spawn('cmd.exe', ['/d', '/s', '/c', command], {
+  const child = spawnShell(command, {
     cwd: project.folder,
-    windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -64,7 +63,7 @@ export function runScript(project, script, command) {
 }
 
 /**
- * Cancel a running script via taskkill /T /F.
+ * Cancel a running script, taking its whole process tree with it.
  * Returns true if a script was running, false otherwise.
  */
 export function cancelScript(id) {
@@ -75,7 +74,7 @@ export function cancelScript(id) {
   runners.delete(id);
 
   try {
-    execSync(`taskkill /pid ${entry.pid} /T /F`, { windowsHide: true });
+    killTree(entry.pid);
   } catch {
     try { entry.child.kill(); } catch { /* give up */ }
   }

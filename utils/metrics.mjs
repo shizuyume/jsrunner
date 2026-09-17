@@ -1,12 +1,12 @@
 // CPU% / memory per project.
-// The tracked PID is the cmd.exe wrapper, so counters are summed over the whole
-// process tree (cmd.exe → npm → node → …) or the numbers would always read ~0.
+// The tracked PID is the shell wrapper, so counters are summed over the whole
+// process tree (sh/cmd.exe → npm → node → …) or the numbers would always read ~0.
 import os from 'os';
-import { listProcesses, collectTree } from './win-process.mjs';
+import { listProcesses, collectTree } from './platform/index.mjs';
 
 const CORES = Math.max(1, os.cpus().length);
 
-// rootPid -> { cpu100ns, at } from the previous sample
+// rootPid -> { cpuMs, at } from the previous sample
 const prevSamples = new Map();
 
 const ZERO = { cpu: '0.0', mem: '0' };
@@ -42,25 +42,24 @@ export async function sampleMetrics(rootPids) {
       continue;
     }
 
-    let cpu100ns = 0;
+    let cpuMs = 0;
     let mem = 0;
     for (const pid of tree) {
       const proc = snapshot.get(pid);
-      cpu100ns += proc.cpu100ns;
+      cpuMs += proc.cpuMs;
       mem += proc.mem;
     }
 
     const memMB = Math.round(mem / (1024 * 1024)).toString();
     const prev = prevSamples.get(rootPid);
-    prevSamples.set(rootPid, { cpu100ns, at: now });
+    prevSamples.set(rootPid, { cpuMs, at: now });
 
     if (!prev || now <= prev.at) {
       out.set(rootPid, { cpu: '0.0', mem: memMB });
       continue;
     }
 
-    // CPU time is in 100ns units: 1 ms of CPU == 10_000 units
-    const busyMs = (cpu100ns - prev.cpu100ns) / 10_000;
+    const busyMs = cpuMs - prev.cpuMs;
     const elapsedMs = now - prev.at;
     const pct = Math.max(0, (busyMs / elapsedMs / CORES) * 100);
 
@@ -77,7 +76,7 @@ export async function sampleMetrics(rootPids) {
 
 /**
  * Poll running projects and report metrics. Skips sampling entirely when
- * nothing is running, so an idle dashboard spawns no PowerShell at all.
+ * nothing is running, so an idle dashboard never queries the process table.
  *
  * @param {object} processManager - must expose getRunningProjects()
  * @param {(id: string, metrics: {cpu: string, mem: string}) => void} onUpdate

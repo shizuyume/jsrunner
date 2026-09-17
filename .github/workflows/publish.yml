@@ -6,7 +6,31 @@ on:
       - 'v*'
 
 jobs:
+  # A tag push does not run the CI workflow (that one watches branches), so the
+  # cross-platform gate is repeated here. Publishing a build that cannot spawn a
+  # process on macOS is exactly the failure this is meant to stop.
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax gate
+        run: npm run check
+
+      - name: Tests
+        run: npm test
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,9 +42,6 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
-
-      - name: Syntax gate
-        run: node --check server/server.mjs
 
       - name: Publish (with provenance)
         run: npm publish --provenance

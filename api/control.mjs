@@ -1,5 +1,5 @@
 import { isPortFree } from '../utils/health.mjs';
-import { findListeningPids, listProcesses } from '../utils/win-process.mjs';
+import { findListeningPids, listProcesses } from '../utils/platform/index.mjs';
 import fs from 'fs';
 
 function sendJSON(res, status, data) {
@@ -25,9 +25,9 @@ function collectBody(req) {
 }
 
 /**
- * Is anything LISTENING on this port? netstat is the authority here — a bind
- * test only proves *one* address is free, and a server on `::` or `0.0.0.0`
- * does not always block a later bind to 127.0.0.1 on Windows.
+ * Is anything LISTENING on this port? The OS listener table is the authority
+ * here — a bind test only proves *one* address is free, and a server on `::`
+ * or `0.0.0.0` does not always block a later bind to 127.0.0.1.
  */
 async function findPortPid(port) {
   const listeners = await findListeningPids();
